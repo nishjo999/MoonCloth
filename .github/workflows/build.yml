@@ -1,0 +1,36 @@
+name: Build APK
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-java@v4
+      with: { java-version: '17', distribution: 'temurin' }
+    - uses: android-actions/setup-android@v3
+    - uses: gradle/actions/setup-gradle@v3
+    - name: Download Gradle Wrapper
+      run: |
+        mkdir -p gradle/wrapper
+        curl -sL https://services.gradle.org/distributions/gradle-8.2-bin.zip -o gradle/wrapper/gradle-8.2-bin.zip
+        cat > gradlew << 'GRADLEW'
+        #!/bin/sh
+        APP_HOME=$( cd "$( dirname "$0" )" && pwd )
+        GRADLE_HOME="$APP_HOME/gradle"
+        mkdir -p "$GRADLE_HOME"
+        unzip -q "$APP_HOME/gradle/wrapper/gradle-8.2-bin.zip" -d "$GRADLE_HOME"
+        exec "$GRADLE_HOME/gradle-8.2/bin/gradle" "$@"
+        GRADLEW
+        chmod +x gradlew
+    - run: ./gradlew assembleRelease --no-daemon
+    - uses: actions/upload-artifact@v4
+      with: { name: MoonCloth-APK, path: app/build/outputs/apk/release/*.apk }
+    - uses: softprops/action-gh-release@v2
+      with:
+        files: app/build/outputs/apk/release/*.apk
+        tag_name: v${{ github.run_number }}
+        name: Release v${{ github.run_number }}
+      env: { GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
